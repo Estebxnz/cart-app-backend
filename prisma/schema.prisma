@@ -10,8 +10,8 @@ datasource db {
 }
 
 model cart {
-  id        Int      @id @default(autoincrement())
-  user_id   Int      @unique(map: "uk9emlp6m95v5er2bcqkjsw48he")
+  id        Int         @id @default(autoincrement())
+  user_id   Int         @unique(map: "uk9emlp6m95v5er2bcqkjsw48he")
   users     users       @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fkg5uhi8vpsuy0lgloxk2h4w5o6")
   cart_item cart_item[]
 
@@ -19,7 +19,7 @@ model cart {
 }
 
 model cart_item {
-  id         Int    @id @default(autoincrement())
+  id         Int      @id @default(autoincrement())
   quantity   Int
   cart_id    Int
   product_id Int
@@ -31,33 +31,57 @@ model cart_item {
 }
 
 model products {
-  id              Int      @id @default(autoincrement())
-  description     String      @db.VarChar(255)
-  name            String      @db.VarChar(255)
-  price           Decimal     @db.Decimal(12, 2)
+  id              Int     @id @default(autoincrement())
+  description     String  @db.VarChar(255)
+  name            String  @db.VarChar(255)
+  price           Decimal @db.Decimal(12, 2)
   stock           Int
-  image_url       String     @db.VarChar(255)
-  image_public_id String     @db.VarChar(255)
-  cart_item       cart_item[]
+  image_url       String  @db.VarChar(255)
+  image_public_id String  @db.VarChar(255)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  cart_item  cart_item[]
+  orderItems order_items[]
 
   @@schema("cartapp_api")
 }
 
 model roles {
-  id          Int        @id @default(autoincrement())
-  name        String       @unique(map: "ukofx66keruapi6vyqpv6f2or37") @db.VarChar(255)
+  id          Int           @id @default(autoincrement())
+  name        String        @unique(map: "ukofx66keruapi6vyqpv6f2or37") @db.VarChar(255)
   users_roles users_roles[]
 
   @@schema("cartapp_api")
 }
 
 model users {
-  id          Int        @id @default(autoincrement())
-  email       String        @unique(map: "uk6dotkott2kjsp8vw4d0m25fb7") @db.VarChar(255)
-  password    String        @db.VarChar(255)
-  username    String        @unique(map: "ukr43af9ap4edm43mmtq01oddj6") @db.VarChar(255)
-  cart        cart?
+  id       Int    @id @default(autoincrement())
+  email    String @unique(map: "uk6dotkott2kjsp8vw4d0m25fb7") @db.VarChar(255)
+  password String @db.VarChar(255)
+  username String @unique(map: "ukr43af9ap4edm43mmtq01oddj6") @db.VarChar(255)
+  
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  cart     cart?
   users_roles users_roles[]
+  orders      orders[]
+  wallet      wallet?
+
+  @@schema("cartapp_api")
+}
+
+model wallet {
+  id      Int     @id @default(autoincrement())
+  user_id Int     @unique
+  balance Decimal @default(0) @db.Decimal(12, 2)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  users users @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fkg5uhi8vpsuy0lgloxk2h4w5o6")
 
   @@schema("cartapp_api")
 }
@@ -65,9 +89,41 @@ model users {
 model users_roles {
   user_id Int
   role_id Int
-  users   users  @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk2o0jvgh89lemvvo17cbqvdxaa")
-  roles   roles  @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fkj6m8fwv7oqv74fcehir1a9ffy")
+  users   users @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk2o0jvgh89lemvvo17cbqvdxaa")
+  roles   roles @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fkj6m8fwv7oqv74fcehir1a9ffy")
 
   @@unique([user_id, role_id], map: "ukq3r1u8cne2rw2hkr899xuh7vj")
+  @@schema("cartapp_api")
+}
+
+model orders {
+  id      Int     @id @default(autoincrement())
+  user_id Int
+  total   Decimal @db.Decimal(12, 2)
+
+  created_at DateTime @default(now())
+
+  users       users         @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk1g0x3j6q7v5k1l8m9n2o3p4q5")
+  order_items order_items[]
+
+  @@index([user_id])
+  @@schema("cartapp_api")
+}
+
+model order_items {
+  id         Int     @id @default(autoincrement())
+  order_id   Int
+  product_id Int
+  quantity   Int
+  unitPrice  Decimal @db.Decimal(12, 2)
+  subtotal   Decimal @db.Decimal(12, 2)
+
+  created_at DateTime @default(now())
+  orders     orders   @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk1h2j3k4l5m6n7o8p9q0r1s2t3")
+  products   products @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk4u5v6w7x8y9z0a1b2c3d4e5f6")
+
+  @@unique([order_id, product_id], map: "uk_order_product")
+  @@index([order_id])
+  @@index([product_id])
   @@schema("cartapp_api")
 }

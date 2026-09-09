@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { addItemToCartDto } from './dto/create-cart.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ProductsService } from 'src/products/products.service';
@@ -53,9 +57,6 @@ export class CartService {
         'Este usuario no tiene un carrito asociado',
       );
     }
-    await this.productsService.update(productId, {
-      stock: product.stock - quantity,
-    });
 
     const cartItem = await this.prismaService.cart_item.create({
       data: {
@@ -71,7 +72,28 @@ export class CartService {
     return ItemCartDto.create(cartItem.products, cartItem.quantity);
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} cart`;
+  async removeItem(userId: number, productId: number) {
+    const cart = await this.prismaService.cart.findUnique({
+      where: { user_id: userId },
+      include: { cart_item: true },
+    });
+
+    if (!cart) {
+      throw new NotFoundException('Este usuario no tiene carrito asociado');
+    }
+
+    const itemsId = cart.cart_item.map((item) => item.product_id);
+
+    if (!itemsId.includes(productId)) {
+      throw new NotFoundException(
+        'Este producto no se encunetra en el carrito',
+      );
+    }
+
+    return this.prismaService.cart_item.delete({
+      where: {
+        cart_id_product_id: { cart_id: cart.id, product_id: productId },
+      },
+    });
   }
 }

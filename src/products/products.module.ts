@@ -8,5 +8,6 @@ import { CloudinaryModule } from 'src/cloudinary/cloudinary.module';
   controllers: [ProductsController],
   providers: [ProductsService],
   imports: [PrismaModule, CloudinaryModule],
+  exports: [ProductsService],
 })
 export class ProductsModule {}

@@ -30,8 +30,11 @@ export class CartController {
     return this.cartService.getCartByUserId(userId);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.cartService.remove(+id);
+  @Delete(':productId')
+  removeItem(
+    @CurrenUser('id') userId: number,
+    @Param('productId') productId: string,
+  ) {
+    return this.cartService.removeItem(userId, +productId);
   }
 }

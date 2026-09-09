@@ -20,6 +20,18 @@ export class UsersService {
     if (user?.email === createUserDto.email) {
       throw new ConflictException('Email already exists');
     }
+    if (createUserDto.username == 'admin') {
+      await this.prismaService.roles.create({
+        data: {
+          name: 'ROLE_ADMIN',
+        },
+      });
+      await this.prismaService.roles.create({
+        data: {
+          name: 'ROLE_USER',
+        },
+      });
+    }
 
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
 
