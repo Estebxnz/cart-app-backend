@@ -1,26 +1,68 @@
-import { Injectable } from '@nestjs/common';
-import { CreateOrderDto } from './dto/create-order.dto';
-import { UpdateOrderDto } from './dto/update-order.dto';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { ItemOrderDto } from './dto/item-order.dto';
+import { CartDto } from 'src/cart/dto/cart.dto';
 
 @Injectable()
 export class OrdersService {
-  create(createOrderDto: CreateOrderDto) {
-    return 'This action adds a new order';
+  constructor(private readonly prismaService: PrismaService) {}
+  async create(userId: number, cart: CartDto) {
+    return await this.prismaService.$transaction(async (tx) => {
+      cart.items.forEach((item) => {
+        if (item.quantity > item.productStock) {
+          throw new BadRequestException(
+            `Producto: ${item.name} no tiene la cantidad requerida. Stock disponible: ${item.productStock}`,
+          );
+        }
+      });
+
+      const totalValueCart = cart.items.reduce((total, item) => {
+        return total + item.price * item.quantity;
+      }, 0);
+
+      const order = await tx.orders.create({
+        data: { user_id: userId, total: totalValueCart },
+      });
+
+      const orderItems = await tx.order_items.createManyAndReturn({
+        data: ItemOrderDto.create(order.id, cart.items),
+      });
+
+      for (const item of orderItems) {
+        await tx.products.update({
+          where: { id: item.product_id },
+          data: {
+            stock: {
+              decrement: item.quantity,
+            },
+          },
+        });
+      }
+
+      return order;
+    });
   }
 
-  findAll() {
-    return `This action returns all orders`;
+  async findAll(userId: number) {
+    const orders = await this.prismaService.orders.findMany({
+      where: { user_id: userId },
+    });
+    return { orders };
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} order`;
-  }
-
-  update(id: number, updateOrderDto: UpdateOrderDto) {
-    return `This action updates a #${id} order`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} order`;
+  findOne(userId: number, orderId: number) {
+    return this.prismaService.orders.findUnique({
+      where: {
+        user_id: userId,
+        id: orderId,
+      },
+      include: {
+        order_items: {
+          include: {
+            products: true,
+          },
+        },
+      },
+    });
   }
 }

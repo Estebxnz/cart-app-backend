@@ -3,19 +3,22 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { addItemToCartDto } from './dto/create-cart.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ProductsService } from 'src/products/products.service';
+import { OrdersService } from 'src/orders/orders.service';
 import { ItemCartDto } from './dto/item-cart.dto';
+import { addItemToCartDto } from './dto/create-cart.dto';
+import { CartDto } from './dto/cart.dto';
 
 @Injectable()
 export class CartService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly productsService: ProductsService,
+    private readonly ordersService: OrdersService,
   ) {}
 
-  async getCartByUserId(userId: number) {
+  async getCartByUserId(userId: number): Promise<CartDto> {
     const cart = await this.prismaService.cart.findUnique({
       where: { user_id: userId },
       include: {
@@ -36,7 +39,10 @@ export class CartService {
     };
   }
 
-  async addItemToCart(userId: number, addItemToCartDto: addItemToCartDto) {
+  async addItemToCart(
+    userId: number,
+    addItemToCartDto: addItemToCartDto,
+  ): Promise<ItemCartDto> {
     const { productId, quantity } = addItemToCartDto;
 
     const product = await this.productsService.findOne(productId);
@@ -95,5 +101,9 @@ export class CartService {
         cart_id_product_id: { cart_id: cart.id, product_id: productId },
       },
     });
+  }
+  async payCart(userId: number) {
+    const cart = await this.getCartByUserId(userId);
+    return this.ordersService.create(userId, cart);
   }
 }

@@ -37,4 +37,9 @@ export class CartController {
   ) {
     return this.cartService.removeItem(userId, +productId);
   }
+
+  @Post('pay')
+  payCart(@CurrenUser('id') userId: number) {
+    return this.cartService.payCart(userId);
+  }
 }
