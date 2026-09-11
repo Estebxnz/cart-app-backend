@@ -7,7 +7,7 @@ import { CartDto } from 'src/cart/dto/cart.dto';
 export class OrdersService {
   constructor(private readonly prismaService: PrismaService) {}
   async create(userId: number, cart: CartDto) {
-    return await this.prismaService.$transaction(async (tx) => {
+    return this.prismaService.$transaction(async (tx) => {
       cart.items.forEach((item) => {
         if (item.quantity > item.productStock) {
           throw new BadRequestException(
@@ -38,6 +38,8 @@ export class OrdersService {
           },
         });
       }
+
+      await tx.cart_item.deleteMany({ where: { cart_id: cart.id } });
 
       return order;
     });

@@ -7,8 +7,9 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { ProductsService } from 'src/products/products.service';
 import { OrdersService } from 'src/orders/orders.service';
 import { ItemCartDto } from './dto/item-cart.dto';
-import { addItemToCartDto } from './dto/create-cart.dto';
+import { addItemToCartDto } from './dto/create-item.dto';
 import { CartDto } from './dto/cart.dto';
+import { UpdateItemDto } from './dto/update-item.dto';
 
 @Injectable()
 export class CartService {
@@ -32,18 +33,31 @@ export class CartService {
         'Este usuario no tiene un carrito asociado',
       );
     }
-    return {
-      items: cart.cart_item.map((item) =>
-        ItemCartDto.create(item.products, item.quantity),
-      ),
-    };
+    return CartDto.createResponse(cart);
+  }
+  private async getCartEntityByUserId(userId: number): Promise<CartDto> {
+    const cart = await this.prismaService.cart.findUnique({
+      where: { user_id: userId },
+      include: {
+        cart_item: {
+          include: { products: { select: ItemCartDto.selectProductData() } },
+        },
+      },
+    });
+    if (!cart) {
+      throw new BadRequestException(
+        'Este usuario no tiene un carrito asociado',
+      );
+    }
+    return CartDto.create(cart);
   }
 
   async addItemToCart(
     userId: number,
+    productId: number,
     addItemToCartDto: addItemToCartDto,
   ): Promise<ItemCartDto> {
-    const { productId, quantity } = addItemToCartDto;
+    const { quantity } = addItemToCartDto;
 
     const product = await this.productsService.findOne(productId);
 
@@ -78,6 +92,19 @@ export class CartService {
     return ItemCartDto.create(cartItem.products, cartItem.quantity);
   }
 
+  async updateItem(
+    userId: number,
+    itemId: number,
+    updateItemDto: UpdateItemDto,
+  ) {
+    const cart = await this.getCartEntityByUserId(userId);
+
+    return await this.prismaService.cart_item.update({
+      where: { id: itemId, cart_id: cart.id },
+      data: updateItemDto,
+    });
+  }
+
   async removeItem(userId: number, productId: number) {
     const cart = await this.prismaService.cart.findUnique({
       where: { user_id: userId },
@@ -102,8 +129,9 @@ export class CartService {
       },
     });
   }
+
   async payCart(userId: number) {
-    const cart = await this.getCartByUserId(userId);
+    const cart = await this.getCartEntityByUserId(userId);
     return this.ordersService.create(userId, cart);
   }
 }
