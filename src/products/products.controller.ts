@@ -22,6 +22,7 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { ParseJsonPipe } from './pipes/parse-json.pipe';
+import { imageValidationPipe } from './pipes/image-validation.pipe';
 
 @Controller('products')
 export class ProductsController {
@@ -29,9 +30,11 @@ export class ProductsController {
 
   @Post()
   @UseInterceptors(FileInterceptor('file'))
-  async createProduct(
-    @Body('product', ParseJsonPipe) productData: CreateProductDto,
-    @UploadedFile('file') productImage: Express.Multer.File,
+  createProduct(
+    @Body('product', ParseJsonPipe)
+    productData: CreateProductDto,
+    @UploadedFile('file', imageValidationPipe)
+    productImage: Express.Multer.File,
   ) {
     return this.productsService.create(productData, productImage);
   }

@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ItemOrderDto } from './dto/item-order.dto';
 import { CartDto } from 'src/cart/dto/cart.dto';
@@ -29,17 +33,20 @@ export class OrdersService {
       });
 
       for (const item of orderItems) {
-        await tx.products.update({
-          where: { id: item.product_id },
+        const product = await tx.products.updateMany({
+          where: { id: item.product_id, stock: { gte: item.quantity } },
           data: {
             stock: {
               decrement: item.quantity,
             },
           },
         });
+        if (product.count === 0) {
+          throw new ConflictException(
+            `ProductId: #${item.product_id}: Stock insuficiente`,
+          );
+        }
       }
-
-      await tx.cart_item.deleteMany({ where: { cart_id: cart.id } });
 
       return order;
     });

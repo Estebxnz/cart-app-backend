@@ -130,8 +130,20 @@ export class CartService {
     });
   }
 
+  emptyCart(cartId: number) {
+    return this.prismaService.cart_item.deleteMany({
+      where: { cart_id: cartId },
+    });
+  }
+
   async payCart(userId: number) {
     const cart = await this.getCartEntityByUserId(userId);
-    return this.ordersService.create(userId, cart);
+    const order = await this.ordersService.create(userId, cart);
+
+    if (cart.id) {
+      await this.emptyCart(cart.id);
+    }
+
+    return order;
   }
 }
