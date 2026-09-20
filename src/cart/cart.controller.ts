@@ -25,7 +25,7 @@ export class CartController {
     return this.cartService.getCartByUserId(userId);
   }
 
-  @Post('addItem/:producId')
+  @Post('addItem/:productId')
   create(
     @CurrenUser('id') userId: number,
     @Param('productId', ParseIntPipe) productId: number,

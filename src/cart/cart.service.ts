@@ -10,6 +10,8 @@ import { ItemCartDto } from './dto/item-cart.dto';
 import { addItemToCartDto } from './dto/create-item.dto';
 import { CartDto } from './dto/cart.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
+import { TransactionsService } from 'src/transactions/transactions.service';
+import { WalletsService } from 'src/wallets/wallets.service';
 
 @Injectable()
 export class CartService {
@@ -17,6 +19,8 @@ export class CartService {
     private readonly prismaService: PrismaService,
     private readonly productsService: ProductsService,
     private readonly ordersService: OrdersService,
+    private readonly transactionsService: TransactionsService,
+    private readonly walletService: WalletsService,
   ) {}
 
   async getCartByUserId(userId: number): Promise<CartDto> {
@@ -138,7 +142,16 @@ export class CartService {
 
   async payCart(userId: number) {
     const cart = await this.getCartEntityByUserId(userId);
-    const order = await this.ordersService.create(userId, cart);
+
+    const result = await this.ordersService.create(userId, cart);
+
+    const { order, transactionData } = result;
+
+    await this.transactionsService.createTransaction(transactionData);
+
+    await this.walletService.withdraw(userId, {
+      amount: transactionData.amount,
+    });
 
     if (cart.id) {
       await this.emptyCart(cart.id);
