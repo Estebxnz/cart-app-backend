@@ -1,34 +1,38 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  UseGuards,
+  Param,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { WalletsService } from './wallets.service';
-import { CreateWalletDto } from './dto/create-wallet.dto';
-import { UpdateWalletDto } from './dto/update-wallet.dto';
+import { AmountDto } from './dto/wallet.dto';
+import { CurrenUser } from 'src/auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 
-@Controller('wallets')
+@UseGuards(JwtAuthGuard)
+@Controller('wallet')
 export class WalletsController {
   constructor(private readonly walletsService: WalletsService) {}
 
-  @Post()
-  create(@Body() createWalletDto: CreateWalletDto) {
-    return this.walletsService.create(createWalletDto);
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Post('deposit')
+  deposit(@CurrenUser('id') userId: number, @Body() amount: AmountDto) {
+    return this.walletsService.deposit(userId, amount);
   }
 
-  @Get()
-  findAll() {
-    return this.walletsService.findAll();
+  @Get('transactions')
+  getTransactions(@CurrenUser('id') userId: number) {
+    return this.walletsService.getTransactions(userId);
   }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.walletsService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateWalletDto: UpdateWalletDto) {
-    return this.walletsService.update(+id, updateWalletDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.walletsService.remove(+id);
+  @Get('transactions/:id')
+  getTransaction(
+    @CurrenUser('id') userId: number,
+    @Param('id') transactionId: number,
+  ) {
+    return this.walletsService.getTransaction(userId, transactionId);
   }
 }
