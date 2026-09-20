@@ -40,7 +40,7 @@ export class AuthService {
       throw new UnauthorizedException('Contraseña incorrecta');
     }
 
-    const { id, username, email, users_roles } = user;
+    const { id, username, email, users_roles, wallet } = user;
 
     const roles = users_roles.map((data) => data.roles.name.slice(5));
     console.log('Roles del usuario:', roles);
@@ -56,6 +56,7 @@ export class AuthService {
         id,
         username,
         email,
+        balance: wallet?.balance,
       },
       token,
     };
