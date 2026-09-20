@@ -6,10 +6,15 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ItemOrderDto } from './dto/item-order.dto';
 import { CartDto } from 'src/cart/dto/cart.dto';
+import { WalletsService } from 'src/wallets/wallets.service';
+import { TransactionType } from 'generated/prisma/enums';
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly walletService: WalletsService,
+  ) {}
   async create(userId: number, cart: CartDto) {
     return this.prismaService.$transaction(async (tx) => {
       cart.items.forEach((item) => {
@@ -23,6 +28,12 @@ export class OrdersService {
       const totalValueCart = cart.items.reduce((total, item) => {
         return total + item.price * item.quantity;
       }, 0);
+
+      const wallet = await this.walletService.getWalletByUserId(userId);
+
+      if (wallet.balance.lessThan(totalValueCart)) {
+        throw new BadRequestException('Saldo insuficiente');
+      }
 
       const order = await tx.orders.create({
         data: { user_id: userId, total: totalValueCart },
@@ -48,7 +59,14 @@ export class OrdersService {
         }
       }
 
-      return order;
+      const transactionData = {
+        wallet_id: wallet.id,
+        order_id: order.id,
+        type: TransactionType.PURCHASE,
+        amount: totalValueCart,
+      };
+
+      return { order, transactionData };
     });
   }
 
