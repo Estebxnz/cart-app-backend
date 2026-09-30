@@ -34,6 +34,7 @@ export class UsersService {
         select: {
           id: true,
           name: true,
+          lastname: true,
           email: true,
         },
       });
