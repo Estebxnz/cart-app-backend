@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Factura</title>
+
+  <style>
+    @page {
+      size: A4;
+      margin: 0;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f4f6f7;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #202020;
+    }
+
+
+    body {
+      width: 210mm;
+      min-height: 297mm;
+    }
+
+    .receipt {
+      width: 100%;
+      min-height: 297mm;
+      padding: 14mm 14mm 18mm;
+      background: #ffffff;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .logo {
+      width: 55mm;
+      height: 27mm;
+      background: #263544;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #e7ebef;
+      font-size: 22px;
+      letter-spacing: 1px;
+    }
+
+    .logo strong {
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .receipt-title {
+      text-align: right;
+    }
+
+    .receipt-title h1 {
+      margin: 0 0 8mm;
+      font-size: 25px;
+      line-height: 1;
+    }
+
+    .receipt-info {
+      display: grid;
+      grid-template-columns: auto auto;
+      column-gap: 10mm;
+      row-gap: 1.5mm;
+      font-size: 10px;
+      line-height: 1.15;
+    }
+
+    .receipt-info .label {
+      color: #7a858c;
+      text-align: left;
+    }
+
+    .receipt-info .value {
+      text-align: right;
+      font-weight: 700;
+    }
+
+    .receipt-info .paid {
+      color: #55a94c;
+      font-size: 12px;
+    }
+
+    .parties {
+      margin-top: 13mm;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 30mm;
+    }
+
+    .party h3 {
+      margin: 0 0 3mm;
+      font-size: 10px;
+    }
+
+    .party .name,
+    .party .company,
+    .party .email,
+    .party .phone {
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .party .company {
+      margin-bottom: 2mm;
+    }
+
+    .party .address {
+      font-size: 10px;
+      line-height: 1.45;
+      font-weight: 600;
+    }
+
+    .party .address-label,
+    .party .contact-label {
+      margin-bottom: 1mm;
+      color: #7a858c;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .party .address-label {
+      margin-top: 2mm;
+    }
+
+    .party .contact-label {
+      margin-top: 2mm;
+    }
+
+    .party .email,
+    .party .phone {
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    /* TABLA DE PRODUCTOS */
+
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 10px;
+      margin-top: 12mm;
+    }
+
+    .items-table th {
+      height: 10mm;
+      padding: 0 4mm;
+      background: #e9f1f5;
+      text-align: left;
+      font-size: 10px;
+      border-bottom: 1px solid #dce4e8;
+    }
+
+    /* # */
+    .items-table th:nth-child(1) {
+      width: 8%;
+      text-align: center;
+    }
+
+    /* Producto */
+    .items-table th:nth-child(2) {
+      width: 37%;
+      text-align: left;
+    }
+
+    /* Cantidad */
+    .items-table th:nth-child(3) {
+      width: 15%;
+      text-align: center;
+    }
+
+    /* Precio */
+    .items-table th:nth-child(4) {
+      width: 20%;
+      text-align: right;
+    }
+
+    /* Total */
+    .items-table th:nth-child(5) {
+      width: 20%;
+      text-align: right;
+    }
+
+    .items-table td {
+      height: 10mm;
+      padding: 0 4mm;
+      border-bottom: 1px solid #e1e1e1;
+      font-weight: 600;
+    }
+
+    /* # */
+    .items-table td:nth-child(1) {
+      text-align: center;
+    }
+
+    /* Cantidad */
+    .items-table td:nth-child(3) {
+      text-align: center;
+    }
+
+    /* Precio */
+    .items-table td:nth-child(4) {
+      text-align: right;
+    }
+
+    /* Total */
+    .items-table td:nth-child(5) {
+      text-align: right;
+      background: #f7f7f7;
+    }
+
+    /* TOTAL */
+
+    .totals {
+      width: 50%;
+      margin-left: auto;
+      margin-top: 14mm;
+      font-size: 10px;
+    }
+
+    .total-row {
+      min-height: 9mm;
+      display: grid;
+      grid-template-columns: 1fr 40%;
+      align-items: center;
+      border-bottom: 1px solid #e5e5e5;
+    }
+
+    .total-row .label {
+      text-align: right;
+      padding-right: 7mm;
+      font-weight: 700;
+    }
+
+    .total-row .value {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: 4mm;
+      background: #f7f7f7;
+      font-weight: 700;
+    }
+
+    .total-row.final {
+      min-height: 14mm;
+      border-bottom: none;
+    }
+
+    .total-row.final .label {
+      font-size: 19px;
+      padding-right: 5mm;
+    }
+
+    .total-row.final .value {
+      font-size: 18px;
+      white-space: nowrap;
+    }
+
+    /* NOTAS */
+
+    .notes {
+      margin-top: 31mm;
+    }
+
+    .notes-title {
+      margin-bottom: 3mm;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .notes-content {
+      font-size: 9px;
+      line-height: 1.45;
+      font-weight: 600;
+    }
+
+    @media print {
+      body {
+        width: 210mm;
+        min-height: 297mm;
+      }
+
+      .receipt {
+        page-break-after: always;
+      }
+
+      .items-table tr {
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <main class="receipt">
+
+    <!-- ENCABEZADO -->
+
+    <header class="header">
+
+      <div class="logo">
+        Cart<strong>App</strong>
+      </div>
+
+      <div class="receipt-title">
+
+        <h1>Factura</h1>
+
+        <div class="receipt-info">
+
+          <div class="label">N.º de factura</div>
+          <div class="value">{{invoiceNumber}}</div>
+
+          <div class="label">Fecha de emisión</div>
+          <div class="value">{{dateIssued}}</div>
+
+          <div class="label">Estado</div>
+          <div class="value paid">PAGADO</div>
+
+        </div>
+
+      </div>
+
+    </header>
+
+
+    <!-- VENDEDOR Y CLIENTE -->
+
+    <!-- CLIENTE -->
+
+    <section class="parties">
+
+      <div class="party">
+
+        <h3>PARA</h3>
+
+        <div class="name">
+          {{customer.name}} {{customer.lastname}}
+        </div>
+
+        <div class="contact-label">
+          CONTACTO
+        </div>
+
+        <div class="phone">
+          Teléfono: {{customer.phone}}
+        </div>
+
+      </div>
+
+
+      <div class="party">
+
+        <h3>DIRECCIÓN</h3>
+
+        <div class="address">
+          {{customer.address}}<br>
+          {{customer.city}}
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- PRODUCTOS -->
+
+    <table class="items-table">
+
+      <thead>
+
+        <tr>
+          <th>#</th>
+          <th>PRODUCTO</th>
+          <th>CANTIDAD</th>
+          <th>PRECIO</th>
+          <th>TOTAL</th>
+        </tr>
+
+      </thead>
+
+      <tbody>
+
+        {{#each items}}
+
+        <tr>
+
+          <td>{{@index}}</td>
+
+          <td>{{description}}</td>
+
+          <td>{{quantity}}</td>
+
+          <td>
+            {{price}}
+          </td>
+
+          <td>
+            {{total}}
+          </td>
+
+        </tr>
+
+        {{/each}}
+
+      </tbody>
+
+    </table>
+
+
+    <!-- TOTAL -->
+
+    <section class="totals">
+
+      <div class="total-row final">
+
+        <div class="label">
+          Total:
+        </div>
+
+        <div class="value">
+          {{totalAmount}} COP
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- NOTAS -->
+
+    <section class="notes">
+
+      <div class="notes-title">
+        NOTAS
+      </div>
+
+      <div class="notes-content">
+        {{notesLine1}}<br>
+        {{notesLine2}}
+      </div>
+
+    </section>
+
+  </main>
+
+</body>
+
+</html>
