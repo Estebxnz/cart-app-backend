@@ -7,7 +7,7 @@ import {
   Min,
 } from 'class-validator';
 
-export class ValidationProductDto {
+export class ValidationCreateProductDto {
   @IsString()
   @IsNotEmpty()
   name!: string;

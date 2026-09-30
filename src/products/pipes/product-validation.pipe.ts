@@ -1,11 +1,14 @@
-import { BadRequestException, Injectable, PipeTransform } from '@nestjs/common';
+import { BadRequestException, PipeTransform } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { ValidationProductDto } from '../dto/validation-product.dto';
+import { ValidationCreateProductDto } from '../dto/validation-create-product.dto';
 import { CreateProductDto } from '../dto/create-product.dto';
 
-@Injectable()
-export class ParseJsonPipe implements PipeTransform {
+export class ProductValidationPipe implements PipeTransform {
+  constructor(
+    private readonly validationClass: new () => object = ValidationCreateProductDto,
+    private readonly dtoClass: new () => object = CreateProductDto,
+  ) {}
   async transform(value: string) {
     let parsed: unknown;
 
@@ -15,7 +18,7 @@ export class ParseJsonPipe implements PipeTransform {
       throw new BadRequestException('JSON inválido');
     }
 
-    const dto = plainToInstance(ValidationProductDto, parsed);
+    const dto = plainToInstance(this.validationClass, parsed);
 
     const errors = await validate(dto);
     if (errors.length > 0) {
@@ -25,6 +28,6 @@ export class ParseJsonPipe implements PipeTransform {
       throw new BadRequestException(errorMessages);
     }
 
-    return plainToInstance(CreateProductDto, parsed);
+    return plainToInstance(this.dtoClass, parsed);
   }
 }

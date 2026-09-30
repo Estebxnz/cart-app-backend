@@ -1,18 +1,26 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { ProductDto } from './dto/product.dto';
+import { Prisma } from 'generated/prisma/client';
+import { SellersService } from 'src/sellers/sellers.service';
+import {
+  ProductNotFoundException,
+  UserNotSellerException,
+} from './exceptions/exceptions';
 
 @Injectable()
 export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cloudinary: CloudinaryService,
+    private readonly sellersService: SellersService,
   ) {}
 
   async create(
+    userId: number,
     productDto: CreateProductDto,
     file: Express.Multer.File,
   ): Promise<ProductDto> {
@@ -23,64 +31,80 @@ export class ProductsService {
 
       publicId = imageData.public_id;
 
-      return await this.prisma.products.create({
+      const seller = await this.sellersService.getSellerByUserId(userId);
+
+      if (!seller) throw new UserNotSellerException();
+
+      const product = await this.prisma.products.create({
         data: {
           ...productDto,
+          seller_id: seller.id,
           image_url: imageData.secure_url,
           image_public_id: imageData.public_id,
         },
-        select: ProductDto.select(),
+        include: ProductDto.selectIncludeData(),
       });
+      return ProductDto.create(product);
     } catch (error) {
       if (publicId) {
         await this.cloudinary.deleteImage(publicId);
       }
 
       throw new Error(
-        error instanceof Error ? error.message : 'Error creating product',
+        error instanceof Error ? error.message : 'Error creando producto',
       );
     }
   }
 
-  findAll(): Promise<ProductDto[]> {
-    return this.prisma.products.findMany({
-      select: ProductDto.select(),
+  async findAll(): Promise<ProductDto[]> {
+    const products = await this.prisma.products.findMany({
+      include: ProductDto.selectIncludeData(),
     });
+    return ProductDto.createList(products);
   }
 
   async findOne(id: number): Promise<ProductDto> {
     const product = await this.prisma.products.findUnique({
       where: { id },
-      select: ProductDto.select(),
+      include: ProductDto.selectIncludeData(),
     });
-    if (!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
-    }
-    return product;
+    if (!product) throw new ProductNotFoundException();
+
+    return ProductDto.create(product);
   }
-  async findOneEntity(id: number) {
-    const product = await this.prisma.products.findUnique({
-      where: { id },
+
+  private async findByUserIdAndProductId(userId: number, productId: number) {
+    const seller = await this.sellersService.getSellerByUserId(userId);
+
+    if (!seller) throw new UserNotSellerException();
+
+    return this.prisma.products.findUnique({
+      where: {
+        id: productId,
+        AND: {
+          seller_id: seller.id,
+        },
+      },
     });
-    if (!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
-    }
-    return product;
   }
 
   async update(
+    userId: number,
     id: number,
     updateProductDto: UpdateProductDto,
     file?: Express.Multer.File,
   ): Promise<ProductDto> {
-    const product = await this.findOneEntity(id);
+    const product = await this.findByUserIdAndProductId(userId, id);
+
+    if (!product) throw new ProductNotFoundException(id);
 
     if (!file) {
-      return this.prisma.products.update({
+      const productDto = this.prisma.products.update({
         where: { id: product.id },
         data: updateProductDto,
-        select: ProductDto.select(),
+        include: ProductDto.selectIncludeData(),
       });
+      return ProductDto.create(productDto);
     }
     let publicId: string | undefined;
     try {
@@ -95,12 +119,12 @@ export class ProductsService {
           image_url: imageData.secure_url,
           image_public_id: imageData.public_id,
         },
-        select: ProductDto.select(),
+        include: ProductDto.selectIncludeData(),
       });
 
       await this.cloudinary.deleteImage(product.image_public_id);
 
-      return updatedProduct;
+      return ProductDto.create(updatedProduct);
     } catch (error) {
       if (publicId) {
         await this.cloudinary.deleteImage(publicId);
@@ -112,8 +136,22 @@ export class ProductsService {
     }
   }
 
-  async remove(id: number): Promise<void> {
-    const product = await this.findOneEntity(id);
+  async decrementStock(item, tx?: Prisma.TransactionClient) {
+    const db = tx ?? this.prisma;
+    return await db.products.updateMany({
+      where: { id: item.product_id, stock: { gte: item.quantity } },
+      data: {
+        stock: {
+          decrement: item.quantity,
+        },
+      },
+    });
+  }
+
+  async remove(userId: number, productId: number): Promise<void> {
+    const product = await this.findByUserIdAndProductId(userId, productId);
+
+    if (!product) throw new ProductNotFoundException();
 
     await this.cloudinary.deleteImage(product.image_public_id);
 

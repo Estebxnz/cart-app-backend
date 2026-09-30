@@ -1,16 +1,26 @@
+import { PipeTransform } from '@nestjs/common';
 import {
-  BadRequestException,
-  FileTypeValidator,
-  ParseFilePipe,
-} from '@nestjs/common';
+  InvalidImageSizeException,
+  InvalidImageTypeException,
+  ProductImageRequeriedException,
+} from '../exceptions/imagesExc/imagesExceptions';
 
-export const imageValidationPipe = new ParseFilePipe({
-  fileIsRequired: true,
-  exceptionFactory: () => new BadRequestException('Imagen requerida'),
-  validators: [
-    new FileTypeValidator({
-      fileType: /^image\/(jpeg|png|webp)$/,
-      errorMessage: 'El tipo de imagen debe ser JPG, PNG o WEBP',
-    }),
-  ],
-});
+export class imageValidationPipe implements PipeTransform {
+  private readonly maxSize = 5 * 1024 * 1024; //5MB
+  constructor(private readonly imageRequeried = true) {}
+  transform(file?: Express.Multer.File) {
+    if (!file && this.imageRequeried)
+      throw new ProductImageRequeriedException();
+
+    if (!file) return file;
+
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+
+    if (!allowedMimeTypes.includes(file.mimetype))
+      throw new InvalidImageTypeException();
+
+    if (file.size > this.maxSize) throw new InvalidImageSizeException();
+
+    return file;
+  }
+}
