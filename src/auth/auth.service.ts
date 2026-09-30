@@ -19,16 +19,13 @@ export class AuthService {
     const user = await this.usersService.create(registerAuthDto);
 
     return await this.login({
-      username: user.username,
+      email: user.email,
       password: registerAuthDto.password,
     });
   }
 
   async login(loginAuthDto: LoginAuthDto) {
-    console.log(loginAuthDto);
-    const user = await this.usersService.findOneByUsername(
-      loginAuthDto.username,
-    );
+    const user = await this.usersService.findOneByEmail(loginAuthDto.email);
 
     if (!user) {
       throw new NotFoundException('Este usuario no existe');
@@ -40,25 +37,29 @@ export class AuthService {
       throw new UnauthorizedException('Contraseña incorrecta');
     }
 
-    const { id, username, email, users_roles, wallet } = user;
+    const { id, name, lastname, email, users_roles, wallet } = user;
 
     const roles = users_roles.map((data) => data.roles.name.slice(5));
     console.log('Roles del usuario:', roles);
 
     const token = await this.jwtService.signAsync({
       id,
-      username,
+      email,
       roles,
     });
 
     return {
       user: {
-        id,
-        username,
+        name,
+        lastname,
         email,
         balance: wallet?.balance,
       },
       token,
     };
+  }
+
+  generateToken(payload: object): Promise<string> {
+    return this.jwtService.signAsync(payload);
   }
 }
