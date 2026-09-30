@@ -1,33 +1,56 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TransactionDto } from './dto/create-transaction.dto';
+import { Prisma, TransactionType } from 'generated/prisma/client';
+import { TransactionDto } from './dto/transaction.dto';
+import { CreateTransactionDto } from './dto/create-transaction.dto';
 
 @Injectable()
 export class TransactionsService {
   constructor(private readonly prismaService: PrismaService) {}
 
-  createTransaction(transactionDto: TransactionDto) {
-    return this.prismaService.transactions.create({
-      data: transactionDto,
+  createDeposit(
+    transactionDto: CreateTransactionDto,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const db = tx ?? this.prismaService;
+    return db.transactions.create({
+      data: { ...transactionDto, type: TransactionType.DEPOSIT },
     });
   }
 
-  async getTransactionById(wallet_id: number, transactionId: number) {
+  createPurchase(
+    transactionDto: CreateTransactionDto,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const db = tx ?? this.prismaService;
+    return db.transactions.create({
+      data: { ...transactionDto, type: TransactionType.PURCHASE },
+    });
+  }
+  createSale(
+    transactionDto: CreateTransactionDto,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const db = tx ?? this.prismaService;
+    return db.transactions.create({
+      data: { ...transactionDto, type: TransactionType.SALE },
+    });
+  }
+
+  async getTransactionByIdAndWalletId(
+    walletId: number,
+    transactionId: number,
+  ): Promise<TransactionDto> {
     const transaction = await this.prismaService.transactions.findUnique({
       where: {
         id: transactionId,
-        AND: {
-          wallet_id: wallet_id,
-        },
-      },
-      include: {
-        order: true,
+        wallet_id: walletId,
       },
     });
     if (!transaction) {
       throw new NotFoundException('Transacción no encontrada');
     }
-    return transaction;
+    return TransactionDto.create(transaction);
   }
 
   getTransactionsByWalletId(walletId: number) {
