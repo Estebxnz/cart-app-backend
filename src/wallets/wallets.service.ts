@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AmountDto } from './dto/wallet.dto';
 import { TransactionsService } from 'src/transactions/transactions.service';
-import { TransactionType } from 'generated/prisma/enums';
+import { Prisma } from 'generated/prisma/client';
 
 @Injectable()
 export class WalletsService {
@@ -11,10 +11,11 @@ export class WalletsService {
     private readonly transactionsServices: TransactionsService,
   ) {}
 
-  create(userId: number) {
-    return this.prismaService.wallet.create({
+  create(userId: number, tx?: Prisma.TransactionClient) {
+    const db = tx ?? this.prismaService;
+    return db.wallet.create({
       data: { user_id: userId },
-      select: { balance: true },
+      select: { id: true, balance: true },
     });
   }
 
@@ -27,8 +28,13 @@ export class WalletsService {
     });
   }
 
-  async deposit(userId: number, amountDto: AmountDto) {
-    const wallet = await this.prismaService.wallet.update({
+  async deposit(
+    userId: number,
+    amountDto: AmountDto,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const db = tx ?? this.prismaService;
+    const wallet = await db.wallet.update({
       where: { user_id: userId },
       data: {
         balance: {
@@ -43,11 +49,10 @@ export class WalletsService {
 
     const transactionData = {
       wallet_id: wallet.id,
-      type: TransactionType.DEPOSIT,
       amount: amountDto.amount,
     };
 
-    await this.transactionsServices.createTransaction(transactionData);
+    await this.transactionsServices.createDeposit(transactionData, tx);
 
     return {
       wallet: {
@@ -56,8 +61,13 @@ export class WalletsService {
     };
   }
 
-  withdraw(userId: number, amountDto: AmountDto) {
-    return this.prismaService.wallet.update({
+  withdraw(
+    userId: number,
+    amountDto: AmountDto,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const db = tx ?? this.prismaService;
+    return db.wallet.update({
       where: { user_id: userId },
       data: {
         balance: {
@@ -82,7 +92,7 @@ export class WalletsService {
 
   async getTransaction(userId: number, transactionId: number) {
     const wallet = await this.getWalletByUserId(userId);
-    return this.transactionsServices.getTransactionById(
+    return this.transactionsServices.getTransactionByIdAndWalletId(
       wallet.id,
       transactionId,
     );
