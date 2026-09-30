@@ -1,12 +1,15 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
-import { ROLE_ADMIN, ROLE_USER } from './constants/roles';
 import { WalletsService } from 'src/wallets/wallets.service';
 import { RolesService } from 'src/roles/roles.service';
-import { TransactionsService } from 'src/transactions/transactions.service';
-// import { TransactionType } from 'generated/prisma/enums';
+import { Role } from 'src/common/enums/role.enum';
+import { Prisma } from 'generated/prisma/client';
 
 @Injectable()
 export class UsersService {
@@ -14,87 +17,74 @@ export class UsersService {
     private readonly prismaService: PrismaService,
     private readonly walletService: WalletsService,
     private readonly rolesService: RolesService,
-    private readonly transactionService: TransactionsService,
   ) {}
 
   async create(createUserDto: CreateUserDto) {
-    const user = await this.findOneByUsernameOrEmail(
-      createUserDto.username,
-      createUserDto.email,
-    );
+    return await this.prismaService.$transaction(async (tx) => {
+      const user = await this.exitsByEmail(createUserDto.email, tx);
 
-    if (user?.username === createUserDto.username) {
-      throw new ConflictException('Username already exists');
-    }
-    if (user?.email === createUserDto.email) {
-      throw new ConflictException('Email already exists');
-    }
-    if (createUserDto.username == 'admin') {
-      await this.rolesService.createRoles(ROLE_ADMIN, ROLE_USER);
-    }
+      if (user) {
+        throw new ConflictException('Email already exists');
+      }
 
-    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+      const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
 
-    const userSaved = await this.prismaService.users.create({
-      data: { ...createUserDto, password: hashedPassword },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-      },
-    });
+      const userSaved = await tx.users.create({
+        data: { ...createUserDto, password: hashedPassword },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      });
 
-    await this.prismaService.cart.create({
-      data: {
-        user_id: userSaved.id,
-      },
-    });
+      await tx.cart.create({
+        data: {
+          user_id: userSaved.id,
+        },
+      });
 
-    const wallet = await this.walletService.create(userSaved.id);
+      const wallet = await this.walletService.create(userSaved.id, tx);
 
-    const rol = await this.rolesService.getRoleByName(ROLE_USER);
+      const rol = await this.rolesService.getRoleByName(Role.USER, tx);
 
-    const userRole = await this.prismaService.users_roles.create({
-      data: {
-        user_id: userSaved.id,
-        role_id: rol.id,
-      },
-      include: {
-        roles: { select: { name: true } },
-      },
-    });
+      const userRole = await tx.users_roles.create({
+        data: {
+          user_id: userSaved.id,
+          role_id: rol.id,
+        },
+        include: {
+          roles: { select: { name: true } },
+        },
+      });
 
-    // const wallet = await this.walletService.deposit(userSaved.id, {
-    //   amount: 1000000,
-    // });
+      await this.walletService.deposit(
+        userSaved.id,
+        {
+          amount: 1000000,
+        },
+        tx,
+      );
 
-    // const transactionData = {
-    //   wallet_id: wallet.id,
-    //   type: TransactionType.DEPOSIT,
-    //   amount: 1000000,
-    // };
-
-    // await this.transactionService.createTransaction(transactionData);
-
-    return {
-      ...userSaved,
-      balance: wallet.balance,
-      roles: [userRole.roles],
-    };
-  }
-
-  findOneByUsernameOrEmail(username: string, email: string) {
-    return this.prismaService.users.findFirst({
-      where: {
-        OR: [{ username }, { email }],
-      },
+      return {
+        ...userSaved,
+        balance: wallet.balance,
+        roles: [userRole.roles],
+      };
     });
   }
 
-  findOneByUsername(username: string) {
+  exitsByEmail(email: string, tx?: Prisma.TransactionClient) {
+    const db = tx ?? this.prismaService;
+    return db.users.findFirst({
+      where: { email },
+    });
+  }
+
+  findOneByEmail(email: string) {
     return this.prismaService.users.findUnique({
       where: {
-        username,
+        email,
       },
       include: {
         users_roles: {
@@ -109,5 +99,22 @@ export class UsersService {
         },
       },
     });
+  }
+
+  async findById(userId: number) {
+    const user = await this.prismaService.users.findUnique({
+      where: {
+        id: userId,
+      },
+      include: {
+        users_roles: {
+          include: {
+            roles: true,
+          },
+        },
+      },
+    });
+    if (!user) throw new NotFoundException('Este usuario no existe');
+    return user;
   }
 }
